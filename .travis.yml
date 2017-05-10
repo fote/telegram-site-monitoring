@@ -1,0 +1,11 @@
+language: go
+
+go:
+  - 1.8
+
+before_install:
+  - go get -u github.com/kardianos/govendor
+  - govendor sync
+
+script:
+  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build
