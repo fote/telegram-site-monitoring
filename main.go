@@ -1,16 +1,18 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/Syfaro/telegram-bot-api"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
+	"net/url"
 	"os"
-	"crypto/tls"
+	"time"
+
+	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
 
 //
@@ -18,15 +20,16 @@ import (
 //Site status
 //0 - never checked
 //1 - timeout
+//2 - SSL expiring
 //200 - ok
 //other statuses - crit
 
 var (
-	SiteList   map[string]int
-	chatID     int64
+	SiteList         map[string]int
+	chatID           int64
 	telegramBotToken string
-	configFile string
-	HelpMsg    = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
+	configFile       string
+	HelpMsg          = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
 		"Список доступных комманд:\n" +
 		"/site_list - покажет список сайтов в мониторинге и их статусы (про статусы ниже)\n" +
 		"/site_add [url] - добавит url в список мониторинга\n" +
@@ -36,6 +39,7 @@ var (
 		"У сайтов может быть несколько статусов:\n" +
 		"0 - никогда не проверялся (ждем проверки)\n" +
 		"1 - ошибка подключения \n" +
+		"2 - истекает сертификат \n" +
 		"200 - ОК-статус" +
 		"все остальные http-коды считаются некорректными"
 )
@@ -102,7 +106,7 @@ func monitor(bot *tgbotapi.BotAPI) {
 	}
 
 	var httpclient = &http.Client{
-		Timeout: time.Second * 10,
+		Timeout:   time.Second * 10,
 		Transport: tr,
 	}
 
@@ -112,10 +116,32 @@ func monitor(bot *tgbotapi.BotAPI) {
 			response, err := httpclient.Get(site)
 			if err != nil {
 				SiteList[site] = 1
-				log.Printf("Status of %s: %s", site, "1 - Connection refused")
+				log.Printf("Status of %s: %s", site, "1 - Connection error")
 			} else {
 				log.Printf("Status of %s: %s", site, response.Status)
 				SiteList[site] = response.StatusCode
+
+				siteUrl, err := url.Parse(site)
+				if err != nil {
+					panic(err)
+				}
+				if siteUrl.Scheme == "https" {
+					conn, err := tls.Dial("tcp", siteUrl.Host+":443", tr.TLSClientConfig)
+					if err != nil {
+						log.Printf("Error in SSL dial to %s: %s", siteUrl.Host, err)
+					}
+					defer conn.Close()
+
+					certs := conn.ConnectionState().PeerCertificates
+					for _, cert := range certs {
+						difference := time.Since(cert.NotAfter)
+						daysToExprire := int64(difference.Hours() / 24)
+						if daysToExprire > -14 {
+							log.Printf("Status of %s: %s", site, "2 - certificate is expiring")
+							SiteList[site] = 2
+						}
+					}
+				}
 			}
 		}
 		send_notifications(bot)
