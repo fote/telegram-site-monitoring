@@ -30,6 +30,7 @@ var (
 	chatID           int64
 	telegramBotToken string
 	configFile       string
+	pprofListen      string
 	HelpMsg          = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
 		"Список доступных комманд:\n" +
 		"/site_list - покажет список сайтов в мониторинге и их статусы (про статусы ниже)\n" +
@@ -48,6 +49,7 @@ var (
 func init() {
 	SiteList = make(map[string]int)
 	flag.StringVar(&configFile, "config", "config.json", "config file")
+	flag.StringVar(&pprofListen, "pprofListen", ":6060", "Pprof listen interface")
 	flag.StringVar(&telegramBotToken, "telegrambottoken", "", "Telegram Bot Token")
 	flag.Int64Var(&chatID, "chatid", 0, "chatId to send messages")
 
@@ -153,8 +155,9 @@ func monitor(bot *tgbotapi.BotAPI) {
 func main() {
 	// Server for pprof
 	go func() {
-		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+		fmt.Println(http.ListenAndServe(pprofListen, nil))
 	}()
+	log.Printf("Pprof interface: %s", pprofListen)
 
 	bot, err := tgbotapi.NewBotAPI(telegramBotToken)
 	if err != nil {
