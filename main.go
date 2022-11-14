@@ -26,12 +26,13 @@ import (
 //other statuses - crit
 
 var (
-	SiteList         map[string]int
-	chatID           int64
-	telegramBotToken string
-	configFile       string
-	pprofListen      string
-	HelpMsg          = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
+	SiteList              map[string]int
+	chatID                int64
+	sslDaysToExipireAlert int64
+	telegramBotToken      string
+	configFile            string
+	pprofListen           string
+	HelpMsg               = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
 		"Список доступных комманд:\n" +
 		"/site_list - покажет список сайтов в мониторинге и их статусы (про статусы ниже)\n" +
 		"/site_add [url] - добавит url в список мониторинга\n" +
@@ -52,6 +53,7 @@ func init() {
 	flag.StringVar(&pprofListen, "pprofListen", ":6060", "Pprof listen interface")
 	flag.StringVar(&telegramBotToken, "telegrambottoken", "", "Telegram Bot Token")
 	flag.Int64Var(&chatID, "chatid", 0, "chatId to send messages")
+	flag.Int64Var(&sslDaysToExipireAlert, "sslDaysToExipireAlert", 10, "SSL certificate expiration threshold")
 
 	flag.Parse()
 
@@ -139,7 +141,7 @@ func monitor(bot *tgbotapi.BotAPI) {
 					for _, cert := range certs {
 						difference := time.Since(cert.NotAfter)
 						daysToExprire := int64(difference.Hours() / 24)
-						if daysToExprire > -14 {
+						if daysToExprire > -(sslDaysToExipireAlert) {
 							log.Printf("Status of %s: %s", site, "2 - certificate is expiring")
 							SiteList[site] = 2
 						}
