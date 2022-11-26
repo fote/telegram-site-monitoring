@@ -135,7 +135,6 @@ func monitor(bot *tgbotapi.BotAPI) {
 					if err != nil {
 						log.Printf("Error in SSL dial to %s: %s", siteUrl.Host, err)
 					}
-					defer conn.Close()
 
 					certs := conn.ConnectionState().PeerCertificates
 					for _, cert := range certs {
@@ -146,6 +145,7 @@ func monitor(bot *tgbotapi.BotAPI) {
 							SiteList[site] = 2
 						}
 					}
+					conn.Close()
 				}
 			}
 		}
