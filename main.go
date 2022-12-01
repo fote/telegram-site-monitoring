@@ -93,12 +93,12 @@ func save_list() {
 func load_list() {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Printf("No such file - starting without config")
+		log.Printf("No such file - starting without config: %s", err)
 		return
 	}
 
 	if err = json.Unmarshal(data, &SiteList); err != nil {
-		log.Printf("Cant read file - starting without config")
+		log.Printf("Cant read file - starting without config: %s", err)
 		return
 	}
 	log.Printf(string(data))
@@ -121,7 +121,7 @@ func monitor(bot *tgbotapi.BotAPI) {
 			response, err := httpclient.Get(site)
 			if err != nil {
 				SiteList[site] = 1
-				log.Printf("Status of %s: %s", site, "1 - Connection error")
+				log.Printf("Status of %s: %s: %s", site, "1 - Connection error", err)
 			} else {
 				log.Printf("Status of %s: %s", site, response.Status)
 				SiteList[site] = response.StatusCode
