@@ -11,6 +11,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
@@ -131,22 +132,31 @@ func monitor(bot *tgbotapi.BotAPI) {
 					panic(err)
 				}
 				if siteUrl.Scheme == "https" {
-					conn, err := tls.Dial("tcp", siteUrl.Host+":443", tr.TLSClientConfig)
+					tcp_addr := siteUrl.Host + ":443"
+					// Check if non-standard https port
+					if strings.Contains(siteUrl.Host, ":") {
+						tcp_addr = siteUrl.Host
+					}
+
+					conn, err := tls.Dial("tcp", tcp_addr, tr.TLSClientConfig)
 					if err != nil {
 						log.Printf("Error in SSL dial to %s: %s", siteUrl.Host, err)
 					}
 
 					certs := conn.ConnectionState().PeerCertificates
-					for _, cert := range certs {
-						difference := time.Since(cert.NotAfter)
-						daysToExprire := int64(difference.Hours() / 24)
-						if daysToExprire > -(sslDaysToExipireAlert) {
-							log.Printf("Status of %s: %s", site, "2 - certificate is expiring")
-							SiteList[site] = 2
+					if len(certs) != 0 {
+						for _, cert := range certs {
+							difference := time.Since(cert.NotAfter)
+							daysToExprire := int64(difference.Hours() / 24)
+							if daysToExprire > -(sslDaysToExipireAlert) {
+								log.Printf("Status of %s: %s", site, "2 - certificate is expiring")
+								SiteList[site] = 2
+							}
 						}
 					}
 					conn.Close()
 				}
+
 			}
 		}
 		send_notifications(bot)
